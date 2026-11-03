@@ -31,7 +31,8 @@ struct ArrivalRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(Tokyo.hhmm(a.expected)).font(.title3.monospacedDigit().bold())
                 Group {
-                    let stop = showStop ? "\(a.stopName) · " : ""
+                    let stop = (showStop ? "\(a.stopName) · " : "") +
+                        (a.homeArrival.map { "\(Tokyo.hhmm($0)) 到\(a.homeStopName) · " } ?? "")
                     if a.isRealtime {
                         let delay = a.delayMinutes
                         Text(stop + "实时 · 时刻表 \(Tokyo.hhmm(a.scheduled))" + (delay > 0 ? " · 晚\(delay)分" : "") +
@@ -64,7 +65,7 @@ struct BoardSnippet: View {
     let board: ArrivalBoard
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("往 \(board.headsign) · \(Timetable.shared.dayType(on: board.generatedAt))").font(.headline)
+            Text("\(board.directionLabel) · \(Timetable.shared.dayType(on: board.generatedAt))").font(.headline)
             ForEach(board.stops, id: \.self) { StopLine(stop: $0) }
             ForEach(board.next(4)) { ArrivalRow(a: $0, now: board.generatedAt, showStop: !board.sameStop) }
             if board.arrivals.isEmpty { Text("今日已无车").foregroundStyle(.secondary) }
@@ -103,12 +104,13 @@ struct ContentView: View {
                             ForEach(Array(list)) { ArrivalRow(a: $0, now: ctx.date, showStop: !b.sameStop) }
                         } header: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("今天：\(Timetable.shared.dayType(on: ctx.date))")
+                                Text("今天：\(Timetable.shared.dayType(on: ctx.date)) · \(b.directionLabel)")
                                     .font(.subheadline.bold()).foregroundStyle(.orange)
                                 ForEach(b.stops, id: \.self) { StopLine(stop: $0) }
                             }.textCase(nil)
                         }
-                        Text("往 \(b.headsign) · " + (b.realtimeOK ? "实时位置校正" : "实时不可用，仅时刻表") +
+                        Text(b.directionLabel + (b.modeNote.isEmpty ? "" : "（\(b.modeNote)）") + " · " +
+                             (b.realtimeOK ? "实时位置校正" : "实时不可用，仅时刻表（\(b.realtimeError ?? "")）") +
                              " · 更新于 \(Tokyo.hhmm(b.generatedAt))")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
@@ -139,11 +141,13 @@ struct ContentView: View {
 
     private var settingsSection: some View {
         Section("设置") {
-            Picker("方向", selection: $model.settings.headsign) {
-                ForEach(Timetable.shared.headsigns, id: \.self) { Text("往 \($0)").tag($0) }
+            Picker("方向", selection: $model.settings.mode) {
+                Text("自动（在家附近→去东京站，否则→回家）").tag("auto")
+                Text("去东京站").tag("toTokyo")
+                Text("回家").tag("home")
             }
             Toggle("自动选最近的站", isOn: $model.settings.autoNearest)
-            Picker("默认站", selection: Binding(
+            Picker("家附近的站", selection: Binding(
                 get: { model.settings.stopID ?? Timetable.shared.data.defaultStop },
                 set: { model.settings.stopID = $0 })) {
                 ForEach(stopsForHeadsign, id: \.self) { Text(Timetable.shared.stopName($0)).tag($0) }
@@ -161,9 +165,9 @@ struct ContentView: View {
     private var stopsForHeadsign: [String] {
         // 按线路顺序排列
         let tt = Timetable.shared
-        let ids = tt.stopIDs(headsign: model.settings.headsign)
+        let ids = tt.stopIDs(headsign: Timetable.toTokyo)
         var seen = Set<String>(), ordered: [String] = []
-        for t in tt.data.trips where t.h == model.settings.headsign {
+        for t in tt.data.trips where tt.matches(t, Timetable.toTokyo) {
             for s in tt.data.patterns[t.p] where ids.contains(s) && seen.insert(s).inserted { ordered.append(s) }
         }
         return ordered

@@ -136,7 +136,12 @@ enum RealtimeFeed {
     static let url = URL(string: "https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus")!
 
     static func fetchVehicles(routeIDs: Set<String>? = nil) async throws -> [VehicleSnapshot] {
-        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        do { return try await fetchOnce(routeIDs: routeIDs) }
+        catch { return try await fetchOnce(routeIDs: routeIDs) }   // 移动网络/VPN 偶发失败，重试一次
+    }
+
+    private static func fetchOnce(routeIDs: Set<String>?) async throws -> [VehicleSnapshot] {
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         req.setValue("application/x-protobuf", forHTTPHeaderField: "Accept")
         let (data, resp) = try await URLSession.shared.data(for: req)
         if let http = resp as? HTTPURLResponse, http.statusCode != 200 { throw URLError(.badServerResponse) }

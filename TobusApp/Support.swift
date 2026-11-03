@@ -3,12 +3,12 @@ import CoreLocation
 import UserNotifications
 
 struct Settings: Codable, Sendable, Equatable {
-    var headsign = "東京駅八重洲口"
+    var mode = "auto"               // auto / toTokyo / home
     var autoNearest = true          // 按当前位置选最近的站
-    var stopID: String? = nil       // 定位失败/不在附近时用的默认站（nil = 新川二丁目）
+    var stopID: String? = nil       // 家附近的站（nil = 新川二丁目）；也是定位失败时的上车站
     var notify = true               // 快捷指令触发时同时发通知
 
-    static let key = "settings.v1"
+    static let key = "settings.v2"
     static func load() -> Settings {
         guard let d = UserDefaults.standard.data(forKey: key),
               let s = try? JSONDecoder().decode(Settings.self, from: d) else { return Settings() }
@@ -82,7 +82,7 @@ enum Notifier {
 
     static func post(_ board: ArrivalBoard) async {
         let c = UNMutableNotificationContent()
-        c.title = "🚌 \(board.stopTitle) → \(board.headsign)"
+        c.title = "🚌 \(board.stopTitle) · \(board.directionLabel)"
         c.body = board.summary() + (board.realtimeOK ? "" : "\n（实时数据暂不可用，按时刻表）")
         c.sound = .default
         let req = UNNotificationRequest(identifier: "bus-board", content: c, trigger: nil)

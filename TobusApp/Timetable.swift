@@ -84,7 +84,13 @@ final class Timetable: Sendable {
 
     func trip(_ id: String) -> TimetableData.Trip? { tripsByID[id] }
     func stopName(_ id: String) -> String { data.stops[id]?.name ?? id }
-    var headsigns: [String] { Array(Set(data.trips.map(\.h))).sorted() }
+    /// 两个方向：去东京站（行先=東京駅八重洲口），或回家方向（从东京站发往東京ビッグサイト / 深川車庫前 / 有明一丁目…，都经过新川）。
+    static let toTokyo = "東京駅八重洲口"
+    static let fromTokyo = "回家方向"
+    var headsigns: [String] { [Timetable.toTokyo, Timetable.fromTokyo] }
+    func matches(_ t: TimetableData.Trip, _ direction: String) -> Bool {
+        direction == Timetable.fromTokyo ? t.h != Timetable.toTokyo : t.h == direction
+    }
 
     /// 某天开行的 service_id 集合。
     func activeServices(on date: Date) -> Set<String> {
@@ -115,10 +121,22 @@ final class Timetable: Sendable {
     /// 某方向（可限定线路）可上车的站（终点站除外）。
     func stopIDs(headsign: String, route: String? = nil) -> Set<String> {
         var ids = Set<String>()
-        for t in data.trips where t.h == headsign && (route == nil || t.r == route) {
+        for t in data.trips where matches(t, headsign) && (route == nil || t.r == route) {
             ids.formUnion(data.patterns[t.p].dropLast())
         }
         return ids
+    }
+
+    /// 某方向的终点站（取最常见的末站）。
+    func terminal(headsign: String) -> String? {
+        var count: [String: Int] = [:]
+        for t in data.trips where matches(t, headsign) { if let l = data.patterns[t.p].last { count[l, default: 0] += 1 } }
+        return count.max { $0.value < $1.value }?.key
+    }
+
+    /// 自动判断：在家附近（800m 内）→ 去东京站；否则 → 回家。
+    func autoDirection(at loc: CLLocation, home: CLLocation) -> String {
+        loc.distance(from: home) <= 800 ? Timetable.toTokyo : Timetable.fromTokyo
     }
 
     func location(of stopID: String) -> CLLocation? {
@@ -138,7 +156,7 @@ final class Timetable: Sendable {
         let today = Tokyo.midnight(from)
         for day in [Tokyo.calendar.date(byAdding: .day, value: -1, to: today)!, today] {
             let services = activeServices(on: day)
-            for trip in data.trips where trip.h == headsign && services.contains(trip.s) {
+            for trip in data.trips where matches(trip, headsign) && services.contains(trip.s) {
                 let pat = data.patterns[trip.p]
                 guard let i = pat.firstIndex(of: stopID), i < pat.count - 1 else { continue }
                 let pass = ScheduledPass(trip: trip, stopIndex: i, serviceDay: day)

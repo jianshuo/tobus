@@ -43,6 +43,37 @@ final class TobusTests: XCTestCase {
         XCTAssertFalse(tt.activeServices(on: jst(2026, 11, 3)).contains("81-170"))
     }
 
+    // 在东京站 → 回家，从東京駅八重洲口上车；在家附近 → 去东京站
+    func testAutoDirection() {
+        let homeLoc = tt.location(of: "0689-02")!
+        let atStation = CLLocation(latitude: 35.6812, longitude: 139.7690)
+        let dir = tt.autoDirection(at: atStation, home: homeLoc)
+        XCTAssertEqual(dir, Timetable.fromTokyo)
+        for r in Routes.all {
+            XCTAssertEqual(tt.nearestStop(to: atStation, headsign: dir, route: r).map { tt.stopName($0.id) }, "東京駅八重洲口")
+        }
+        let nearHome = CLLocation(latitude: 35.67359, longitude: 139.78259)
+        XCTAssertEqual(tt.autoDirection(at: nearHome, home: homeLoc), Timetable.toTokyo)
+    }
+
+    // 回家：从东京站上车，每班都算出到家门口那一站的时间（4–6 分钟后）
+    func testGoHomeArrival() throws {
+        let homeLoc = tt.location(of: "0689-02")!
+        let dir = Timetable.fromTokyo
+        let here = CLLocation(latitude: 35.6812, longitude: 139.7690)
+        let stops = Routes.all.map { r -> RouteStop in
+            let id = tt.nearestStop(to: here, headsign: dir, route: r)!.id
+            return RouteStop(route: r, stopID: id, stopName: tt.stopName(id), distanceMeters: nil)
+        }
+        let board = ArrivalEngine.board(stops: stops, headsign: dir, home: homeLoc, now: jst(2026, 11, 6, 15, 0), vehicles: nil)
+        XCTAssertGreaterThan(board.arrivals.count, 10)
+        for a in board.arrivals.prefix(10) {
+            let m = try XCTUnwrap(a.homeArrival).timeIntervalSince(a.scheduled) / 60
+            XCTAssertTrue((3...8).contains(m), "\(a.route) \(m) \(a.id) \(Tokyo.hhmm(a.scheduled)) \(a.stopName)->\(a.homeStopName)")
+            if a.route == "東16" { XCTAssertEqual(a.homeStopName, "新川") }
+        }
+    }
+
     func testDayType() {
         XCTAssertEqual(tt.dayType(on: jst(2026, 11, 3, 9)), "休日时刻（祝日）")   // 文化の日
         XCTAssertEqual(tt.dayType(on: jst(2026, 11, 4, 9)), "平日时刻")
