@@ -8,6 +8,7 @@ struct Arrival: Identifiable, Sendable, Hashable {
     let isRealtime: Bool
     let stopsAway: Int?          // 还差几站（有实时才有）
     let vehicleLabel: String?
+    var stopName = ""
 
     var delayMinutes: Int { Int((expected.timeIntervalSince(scheduled) / 60).rounded()) }
     func minutesUntil(_ now: Date) -> Int { max(0, Int(expected.timeIntervalSince(now) / 60)) }
@@ -35,6 +36,10 @@ struct ArrivalBoard: Sendable {
         let names = stops.map(\.stopName)
         return Set(names).count <= 1 ? (names.first ?? "") : stops.map { "\($0.route) \($0.stopName)" }.joined(separator: " / ")
     }
+
+    /// 两条线路混排、按到站时间排序的最近 n 班。
+    func next(_ n: Int) -> [Arrival] { Array(arrivals.prefix(n)) }
+    var sameStop: Bool { Set(stops.map(\.stopID)).count <= 1 }
 
     /// 每条线路最近的 n 班。
     func next(_ n: Int, per route: String) -> [Arrival] {
@@ -81,12 +86,12 @@ enum ArrivalEngine {
                     guard passed < p.stopIndex else { continue }                  // 已经开过本站
                     let eta = max(now, p.scheduled.addingTimeInterval(delay))     // 数据有几十秒延迟；ETA 不早于「现在」
                     out.append(Arrival(id: p.trip.id, route: p.trip.r, scheduled: p.scheduled, expected: eta,
-                                       isRealtime: true, stopsAway: p.stopIndex - passed, vehicleLabel: v.label))
+                                       isRealtime: true, stopsAway: p.stopIndex - passed, vehicleLabel: v.label, stopName: rs.stopName))
                 } else {
                     // 没有实时数据：还没发车或漏报 → 按时刻表；已过点的不显示
                     guard p.scheduled >= now.addingTimeInterval(-30) else { continue }
                     out.append(Arrival(id: p.trip.id, route: p.trip.r, scheduled: p.scheduled, expected: p.scheduled,
-                                       isRealtime: false, stopsAway: nil, vehicleLabel: nil))
+                                       isRealtime: false, stopsAway: nil, vehicleLabel: nil, stopName: rs.stopName))
                 }
             }
         }
@@ -120,19 +125,15 @@ enum BusService {
 }
 
 extension ArrivalBoard {
-    /// 通知 / 对话框里的一句话摘要。
-    func summary(now: Date = .now) -> String {
-        let sameStop = Set(stops.map(\.stopID)).count <= 1
-        let parts = Routes.all.compactMap { r -> String? in
-            let a = next(2, per: r)
-            let at = sameStop ? "" : "@\(stop(for: r)?.stopName ?? "") "
-            guard !a.isEmpty else { return "\(r) \(at)今日已无车" }
-            return "\(r) \(at)" + a.map { x in
-                let m = x.minutesUntil(now)
-                let tag = x.isRealtime ? (x.delayMinutes > 0 ? "·晚\(x.delayMinutes)分" : "·实时") : ""
-                return "\(m == 0 ? "即将到" : "\(m)分")(\(Tokyo.hhmm(x.expected))\(tag))"
-            }.joined(separator: "，")
-        }
-        return parts.joined(separator: "\n")
+    /// 通知 / 对话框里的摘要：两条线混排，按到站时间排序。
+    func summary(now: Date = .now, count: Int = 4) -> String {
+        let list = next(count)
+        guard !list.isEmpty else { return "東16、東15 今日已无车" }
+        return list.map { x in
+            let m = x.minutesUntil(now)
+            let at = sameStop ? "" : " @\(x.stopName)"
+            let tag = x.isRealtime ? (x.delayMinutes > 0 ? " 晚\(x.delayMinutes)分" : " 实时") : ""
+            return "\(x.route) \(m == 0 ? "即将到" : "\(m)分后") \(Tokyo.hhmm(x.expected))\(tag)\(at)"
+        }.joined(separator: "\n")
     }
 }

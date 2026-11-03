@@ -24,18 +24,20 @@ struct RouteBadge: View {
 struct ArrivalRow: View {
     let a: Arrival
     let now: Date
+    var showStop = false
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             RouteBadge(route: a.route)
             VStack(alignment: .leading, spacing: 2) {
                 Text(Tokyo.hhmm(a.expected)).font(.title3.monospacedDigit().bold())
                 Group {
+                    let stop = showStop ? "\(a.stopName) · " : ""
                     if a.isRealtime {
                         let delay = a.delayMinutes
-                        Text("实时 · 时刻表 \(Tokyo.hhmm(a.scheduled))" + (delay > 0 ? " · 晚\(delay)分" : "") +
+                        Text(stop + "实时 · 时刻表 \(Tokyo.hhmm(a.scheduled))" + (delay > 0 ? " · 晚\(delay)分" : "") +
                              (a.stopsAway.map { " · 还有\($0)站" } ?? ""))
                     } else {
-                        Text("时刻表")
+                        Text(stop + "时刻表")
                     }
                 }.font(.caption).foregroundStyle(a.isRealtime ? .green : .secondary)
             }
@@ -63,10 +65,9 @@ struct BoardSnippet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("往 \(board.headsign)").font(.headline)
-            ForEach(Routes.all, id: \.self) { r in
-                if let s = board.stop(for: r) { StopLine(stop: s) }
-                ForEach(board.next(2, per: r)) { ArrivalRow(a: $0, now: board.generatedAt) }
-            }
+            ForEach(board.stops, id: \.self) { StopLine(stop: $0) }
+            ForEach(board.next(4)) { ArrivalRow(a: $0, now: board.generatedAt, showStop: !board.sameStop) }
+            if board.arrivals.isEmpty { Text("今日已无车").foregroundStyle(.secondary) }
             if !board.realtimeOK { Text("实时数据暂不可用，按时刻表显示").font(.caption2).foregroundStyle(.secondary) }
         }.padding()
     }
@@ -96,16 +97,14 @@ struct ContentView: View {
             TimelineView(.periodic(from: .now, by: 15)) { ctx in
                 List {
                     if let b = model.board {
-                        ForEach(Routes.all, id: \.self) { r in
-                            Section {
-                                let list = b.next(3, per: r)
-                                if list.isEmpty {
-                                    HStack { RouteBadge(route: r); Text("今日已无车").foregroundStyle(.secondary) }
-                                }
-                                ForEach(list) { ArrivalRow(a: $0, now: ctx.date) }
-                            } header: {
-                                if let s = b.stop(for: r) { StopLine(stop: s).textCase(nil) }
-                            }
+                        Section {
+                            let list = b.arrivals.filter { $0.expected >= ctx.date.addingTimeInterval(-30) }.prefix(8)
+                            if list.isEmpty { Text("東16、東15 今日已无车").foregroundStyle(.secondary) }
+                            ForEach(Array(list)) { ArrivalRow(a: $0, now: ctx.date, showStop: !b.sameStop) }
+                        } header: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(b.stops, id: \.self) { StopLine(stop: $0) }
+                            }.textCase(nil)
                         }
                         Text("往 \(b.headsign) · " + (b.realtimeOK ? "实时位置校正" : "实时不可用，仅时刻表") +
                              " · 更新于 \(Tokyo.hhmm(b.generatedAt))")
