@@ -102,15 +102,21 @@ final class Timetable: Sendable {
         return set
     }
 
-    /// 某方向可上车的站（终点站除外）。
-    func stopIDs(headsign: String) -> Set<String> {
+    /// 某方向（可限定线路）可上车的站（终点站除外）。
+    func stopIDs(headsign: String, route: String? = nil) -> Set<String> {
         var ids = Set<String>()
-        for t in data.trips where t.h == headsign { ids.formUnion(data.patterns[t.p].dropLast()) }
+        for t in data.trips where t.h == headsign && (route == nil || t.r == route) {
+            ids.formUnion(data.patterns[t.p].dropLast())
+        }
         return ids
     }
 
-    func nearestStop(to location: CLLocation, headsign: String) -> (id: String, meters: Double)? {
-        stopIDs(headsign: headsign).compactMap { id -> (String, Double)? in
+    func location(of stopID: String) -> CLLocation? {
+        data.stops[stopID].map { CLLocation(latitude: $0.lat, longitude: $0.lon) }
+    }
+
+    func nearestStop(to location: CLLocation, headsign: String, route: String? = nil) -> (id: String, meters: Double)? {
+        stopIDs(headsign: headsign, route: route).compactMap { id -> (String, Double)? in
             guard let s = data.stops[id] else { return nil }
             return (id, location.distance(from: CLLocation(latitude: s.lat, longitude: s.lon)))
         }.min { $0.1 < $1.1 }.map { (id: $0.0, meters: $0.1) }

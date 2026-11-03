@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import Tobus
 
 final class TobusTests: XCTestCase {
@@ -45,6 +46,22 @@ final class TobusTests: XCTestCase {
     func testNearestStop() {
         let near = tt.nearestStop(to: .init(latitude: 35.6747, longitude: 139.7818), headsign: "東京駅八重洲口")
         XCTAssertEqual(near.map { tt.stopName($0.id) }, "新川二丁目")
+    }
+
+    // 回归：南高橋只有東15 停。人站在南高橋旁，東16 必须去找它自己停的最近站，而不是报「今日已无车」
+    func testNearestStopPerRoute() {
+        let here = CLLocation(latitude: 35.67359, longitude: 139.78259) // 南高橋
+        let h = "東京駅八重洲口"
+        XCTAssertEqual(tt.nearestStop(to: here, headsign: h).map { tt.stopName($0.id) }, "南高橋")
+        XCTAssertEqual(tt.nearestStop(to: here, headsign: h, route: "東15").map { tt.stopName($0.id) }, "南高橋")
+        let s16 = tt.nearestStop(to: here, headsign: h, route: "東16")!
+        XCTAssertEqual(tt.stopName(s16.id), "新川二丁目")
+
+        let noon = jst(2026, 11, 6, 12, 0)
+        let stops = ["東16": s16.id, "東15": "1483-01"].map { RouteStop(route: $0.key, stopID: $0.value, stopName: tt.stopName($0.value), distanceMeters: nil) }
+        let board = ArrivalEngine.board(stops: stops, headsign: h, now: noon, vehicles: nil)
+        XCTAssertFalse(board.next(2, per: "東16").isEmpty)
+        XCTAssertFalse(board.next(2, per: "東15").isEmpty)
     }
 
     func testDecodeRealtimeFixture() throws {

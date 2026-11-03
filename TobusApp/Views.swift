@@ -46,13 +46,25 @@ struct ArrivalRow: View {
     }
 }
 
+struct StopLine: View {
+    let stop: RouteStop
+    var body: some View {
+        HStack(spacing: 6) {
+            RouteBadge(route: stop.route)
+            Text(stop.stopName).font(.subheadline.bold()).foregroundStyle(.primary)
+            Text(stop.distanceMeters.map { "离你 \(Int($0)) 米" } ?? "默认站").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// App Intent 弹出的卡片。
 struct BoardSnippet: View {
     let board: ArrivalBoard
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(board.stopName) → \(board.headsign)").font(.headline)
-            ForEach(["東16", "東15"], id: \.self) { r in
+            Text("往 \(board.headsign)").font(.headline)
+            ForEach(Routes.all, id: \.self) { r in
+                if let s = board.stop(for: r) { StopLine(stop: s) }
                 ForEach(board.next(2, per: r)) { ArrivalRow(a: $0, now: board.generatedAt) }
             }
             if !board.realtimeOK { Text("实时数据暂不可用，按时刻表显示").font(.caption2).foregroundStyle(.secondary) }
@@ -84,23 +96,20 @@ struct ContentView: View {
             TimelineView(.periodic(from: .now, by: 15)) { ctx in
                 List {
                     if let b = model.board {
-                        Section {
-                            ForEach(["東16", "東15"], id: \.self) { r in
+                        ForEach(Routes.all, id: \.self) { r in
+                            Section {
                                 let list = b.next(3, per: r)
                                 if list.isEmpty {
                                     HStack { RouteBadge(route: r); Text("今日已无车").foregroundStyle(.secondary) }
                                 }
                                 ForEach(list) { ArrivalRow(a: $0, now: ctx.date) }
+                            } header: {
+                                if let s = b.stop(for: r) { StopLine(stop: s).textCase(nil) }
                             }
-                        } header: {
-                            VStack(alignment: .leading) {
-                                Text("\(b.stopName) → \(b.headsign)").font(.headline).foregroundStyle(.primary)
-                                Text((b.distanceMeters.map { "离你 \(Int($0)) 米 · " } ?? "默认站 · ") +
-                                     (b.realtimeOK ? "实时位置校正" : "实时不可用，仅时刻表") +
-                                     " · 更新于 \(Tokyo.hhmm(b.generatedAt))")
-                                    .font(.caption)
-                            }.textCase(nil)
                         }
+                        Text("往 \(b.headsign) · " + (b.realtimeOK ? "实时位置校正" : "实时不可用，仅时刻表") +
+                             " · 更新于 \(Tokyo.hhmm(b.generatedAt))")
+                            .font(.caption).foregroundStyle(.secondary)
                     } else {
                         ProgressView()
                     }

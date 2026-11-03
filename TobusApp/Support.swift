@@ -82,8 +82,7 @@ enum Notifier {
 
     static func post(_ board: ArrivalBoard) async {
         let c = UNMutableNotificationContent()
-        let dist = board.distanceMeters.map { " · \(Int($0))m" } ?? ""
-        c.title = "🚌 \(board.stopName) → \(board.headsign)\(dist)"
+        c.title = "🚌 \(board.stopTitle) → \(board.headsign)"
         c.body = board.summary() + (board.realtimeOK ? "" : "\n（实时数据暂不可用，按时刻表）")
         c.sound = .default
         let req = UNNotificationRequest(identifier: "bus-board", content: c, trigger: nil)

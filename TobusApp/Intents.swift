@@ -16,7 +16,7 @@ struct ShowBusTimesIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let board = await BusService.loadBoard()
         if sendNotification && Settings.load().notify { await Notifier.post(board) }
-        return .result(dialog: IntentDialog(stringLiteral: "\(board.stopName)站\n" + board.summary()),
+        return .result(dialog: IntentDialog(stringLiteral: "\(board.stopTitle)\n" + board.summary()),
                        view: BoardSnippet(board: board))
     }
 }
