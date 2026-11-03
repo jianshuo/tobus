@@ -43,6 +43,13 @@ final class TobusTests: XCTestCase {
         XCTAssertFalse(tt.activeServices(on: jst(2026, 11, 3)).contains("81-170"))
     }
 
+    func testDayType() {
+        XCTAssertEqual(tt.dayType(on: jst(2026, 11, 3, 9)), "休日时刻（祝日）")   // 文化の日
+        XCTAssertEqual(tt.dayType(on: jst(2026, 11, 4, 9)), "平日时刻")
+        XCTAssertEqual(tt.dayType(on: jst(2026, 11, 7, 9)), "土曜时刻")
+        XCTAssertEqual(tt.dayType(on: jst(2026, 11, 8, 9)), "休日时刻")
+    }
+
     func testNearestStop() {
         let near = tt.nearestStop(to: .init(latitude: 35.6747, longitude: 139.7818), headsign: "東京駅八重洲口")
         XCTAssertEqual(near.map { tt.stopName($0.id) }, "新川二丁目")

@@ -102,6 +102,16 @@ final class Timetable: Sendable {
         return set
     }
 
+    /// 当天用哪套时刻：都营 service_id 末三位 10x=休日、16x=土曜、17x=平日。
+    func dayType(on date: Date) -> String {
+        let ids = activeServices(on: date).filter { $0.hasPrefix("81-") }
+        let holiday = Tokyo.holidays.contains(Tokyo.ymd(date)) ? "（祝日）" : ""
+        if ids.contains(where: { $0.hasPrefix("81-10") }) { return "休日时刻" + holiday }
+        if ids.contains(where: { $0.hasPrefix("81-16") }) { return "土曜时刻" }
+        if ids.contains(where: { $0.hasPrefix("81-17") }) { return "平日时刻" }
+        return "时刻未知"
+    }
+
     /// 某方向（可限定线路）可上车的站（终点站除外）。
     func stopIDs(headsign: String, route: String? = nil) -> Set<String> {
         var ids = Set<String>()

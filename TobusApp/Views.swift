@@ -64,7 +64,7 @@ struct BoardSnippet: View {
     let board: ArrivalBoard
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("往 \(board.headsign)").font(.headline)
+            Text("往 \(board.headsign) · \(Timetable.shared.dayType(on: board.generatedAt))").font(.headline)
             ForEach(board.stops, id: \.self) { StopLine(stop: $0) }
             ForEach(board.next(4)) { ArrivalRow(a: $0, now: board.generatedAt, showStop: !board.sameStop) }
             if board.arrivals.isEmpty { Text("今日已无车").foregroundStyle(.secondary) }
@@ -103,6 +103,8 @@ struct ContentView: View {
                             ForEach(Array(list)) { ArrivalRow(a: $0, now: ctx.date, showStop: !b.sameStop) }
                         } header: {
                             VStack(alignment: .leading, spacing: 4) {
+                                Text("今天：\(Timetable.shared.dayType(on: ctx.date))")
+                                    .font(.subheadline.bold()).foregroundStyle(.orange)
                                 ForEach(b.stops, id: \.self) { StopLine(stop: $0) }
                             }.textCase(nil)
                         }
