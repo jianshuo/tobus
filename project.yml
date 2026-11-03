@@ -1,0 +1,52 @@
+name: Tobus
+options:
+  bundleIdPrefix: com.wangjianshuo
+  deploymentTarget:
+    iOS: "18.0"
+targets:
+  Tobus:
+    type: application
+    platform: iOS
+    sources:
+      - path: TobusApp
+    info:
+      path: TobusApp/Info.plist
+      properties:
+        CFBundleDisplayName: 出门巴士
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: ""
+        NSLocationWhenInUseUsageDescription: 用来找离你最近的东15/东16 车站。
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        PRODUCT_BUNDLE_IDENTIFIER: com.wangjianshuo.tobus
+        DEVELOPMENT_TEAM: 97XBW2A43H
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  TobusTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TobusTests
+    dependencies:
+      - target: Tobus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wangjianshuo.tobus.tests
+        DEVELOPMENT_TEAM: 97XBW2A43H
+        GENERATE_INFOPLIST_FILE: "YES"
+schemes:
+  Tobus:
+    build:
+      targets:
+        Tobus: all
+        TobusTests: [test]
+    test:
+      targets:
+        - TobusTests
