@@ -131,6 +131,8 @@ struct ContentView: View {
             .sheet(isPresented: $showSetup) { SetupGuide() }
         }
         .task {
+            // 截图用：启动参数 -showSetup 直接打开设置引导
+            if ProcessInfo.processInfo.arguments.contains("-showSetup") { showSetup = true }
             LocationOnce.requestPermission()
             await model.refresh()
         }
@@ -206,7 +208,10 @@ struct SetupGuide: View {
             }
             .navigationTitle("离家自动弹出")
             .toolbar { Button("完成") { dismiss() } }
-            .task { await Notifier.requestPermission() }
+            .task {
+                guard !ProcessInfo.processInfo.arguments.contains("-showSetup") else { return } // 截图模式不弹权限框
+                await Notifier.requestPermission()
+            }
         }
     }
 }
