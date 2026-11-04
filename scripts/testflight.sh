@@ -1,6 +1,7 @@
 #!/bin/bash
-# 本地打包并上传 TestFlight（不依赖 fastlane；Xcode 用 ASC API key 自动管理分发签名）。
+# 本地打包并上传 TestFlight（不依赖 fastlane；手动分发签名，ASC API key 只用于上传）。
 # 前提：App Store Connect 已有 bundle id = com.wangjianshuo.tobus 的 App 记录，且开发者协议已签。
+# 分发签名：钥匙串里的 Apple Distribution 证书 + API 建的「Tobus AppStore」描述文件（API key 无云签名权限，只能手动签）。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,7 +21,9 @@ cat > "$OUT/ExportOptions.plist" <<EOF
   <key>method</key><string>app-store-connect</string>
   <key>destination</key><string>upload</string>
   <key>teamID</key><string>97XBW2A43H</string>
-  <key>signingStyle</key><string>automatic</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>provisioningProfiles</key><dict><key>com.wangjianshuo.tobus</key><string>Tobus AppStore</string></dict>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>
 EOF
@@ -29,7 +32,8 @@ AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticati
 
 xcodebuild archive -project Tobus.xcodeproj -scheme Tobus -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$OUT/Tobus.xcarchive" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUM" "${AUTH[@]}" -quiet
+  CURRENT_PROJECT_VERSION="$BUILD_NUM" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" \
+  PROVISIONING_PROFILE_SPECIFIER="Tobus AppStore" "${AUTH[@]}" -quiet
 
 xcodebuild -exportArchive -archivePath "$OUT/Tobus.xcarchive" \
   -exportOptionsPlist "$OUT/ExportOptions.plist" -exportPath "$OUT/export" "${AUTH[@]}"
