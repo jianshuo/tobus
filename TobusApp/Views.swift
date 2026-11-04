@@ -120,6 +120,10 @@ struct ContentView: View {
                     Section {
                         Button("设置「离开家里 Wi‑Fi 自动弹出」") { showSetup = true }
                     }
+                    Section {
+                        Text("数据来源：公共交通オープンデータセンター（ODPT）提供的东京都交通局（都营巴士）时刻表与车辆位置数据。本应用为个人开发，非东京都交通局官方应用；数据的准确性与实时性不作保证，请以现场为准。有关本应用的问题请勿联系东京都交通局。")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
                 .refreshable { await model.refresh() }
             }
