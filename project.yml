@@ -13,6 +13,8 @@ targets:
       path: TobusApp/Info.plist
       properties:
         CFBundleDisplayName: 出门巴士
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
           UIColorName: ""
